@@ -1,0 +1,97 @@
+---
+title: "Week 4 Practical Machine Learning"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+## Importing Libraries
+
+library(ggplot2)
+library(dplyr)
+library(fastDummies)
+library(caret)
+library(randomForest)
+library(e1071)
+
+# Importing the dataset
+training<- read.csv("pml-training.csv", na.strings = c(""," ","NA"))
+testing<- read.csv("pml-testing.csv", na.strings = c(""," ","NA"))
+
+### Data preprocessing
+
+# Step 1: Handling missing Values for Training Data
+missing_data<- apply(training,2, function(x) !(any(is.na(x))))
+data<- data.frame(missing_data)
+training_data<- training[,data$missing_data]
+
+# Handling missing Values for Testing Data
+missing_data_test<- apply(testing,2, function(x) !(any(is.na(x))))
+data_test<- data.frame(missing_data_test)
+testing_data<- testing[,data_test$missing_data_test]
+
+## Step2: Handling the non-numeric values
+train_data<- select(training_data, -c(X:new_window))
+test_data<- select(testing_data,-c(X:new_window))
+fit_rf<- randomForest(classe~., data= train_data)
+
+# Findout Feature Importance
+
+importance<-importance(fit_rf,)
+varImpPlot(fit_rf)
+min<-min(importance)
+max<- max(importance)
+mean<- mean(importance)
+md<-median(importance)
+a<- importance>mean
+
+#Findout the co-relations
+
+train_d<- select(train_data, -c(classe))
+d<- abs(cor(train_d))
+diag(d)<-1
+t<-which(d>0.9, arr.ind = T)
+
+# Data with impacted parameters
+
+final_data<-train_data[,a]
+final_data_test<- test_data[,a]
+
+## Step3: Prediction
+
+# Spliting Train and Test sets 
+
+train_inx<- createDataPartition(final_data$classe, p=0.5, list=F)
+traindata<- final_data[train_inx,]
+testdata<- final_data[-train_inx,]
+
+# Fit into Model- Tree
+
+mod1<- train(classe~., data= traindata, method='rpart')
+pred1<- predict(mod1, testdata)
+confusionMatrix(pred1, testdata$classe)
+
+# Fit into Model- Random Forest
+
+mod2<- train(classe~., data= traindata, method='rf', prox= T, ntree=250)
+pred2<- predict(mod2, testdata)
+confusionMatrix(pred2, testdata$classe)
+
+## Step4: Final data prediction
+
+p1<- predict(mod2, test_data)
+p1
+
+```
+
